@@ -6,38 +6,7 @@ func modelIdentifier() -> String {
     return String(bytes: Data(bytes: &sysinfo.machine, count: Int(_SYS_NAMELEN)), encoding: .ascii)!.trimmingCharacters(in: .controlCharacters)
 }
 
-func setCrumbDate() {
-    let dateFormatter = DateFormatter()
-    dateFormatter.dateFormat = "dd/MM"
-    
-    let newStr: String = dateFormatter.string(from: Date())
-    
-    if (newStr + " ▶").utf8CString.count <= 256 {
-        StatusManager.sharedInstance().setCrumb(newStr)
-    } else {
-        StatusManager.sharedInstance().setCrumb("Length Error")
-    }
-}
-func setCrumbWeather() {
-    /*
-    var locationDataManager = LocationManager()
-    guard let lat = locationDataManager.locationManager.location?.coordinate.latitude else {
-        return
-    }
-    guard let long = locationDataManager.locationManager.location?.coordinate.longitude else {
-        return
-    }
-    fetchWeather(lat: lat, lon: long) { str in
-        if (str + " ▶").utf8CString.count <= 256 {
-            StatusManager.sharedInstance().setCrumb(str)
-        } else {
-            StatusManager.sharedInstance().setCrumb("Length Error")
-        }
-    } failure: { error in
-        StatusManager.sharedInstance().setCrumb("error")
-    }
-     */
-}
+
 
 struct ContentView: View {
     @Environment(\.openURL) var openURL
@@ -67,7 +36,11 @@ struct ContentView: View {
     //@State private var crumbDateTextEnabled: Bool = false
     //@State private var crumbWeatherTextEnabled: Bool = false
 
-    @State private var crumbDateTextEnabled: Bool = StatusManager.sharedInstance().isCrumbOverridden()
+    @State private var crumbDateTextEnabled: Bool = false
+    @State private var crumbWeatherEnabled: Bool = false
+
+    
+    @ObservedObject var backgroundController = BackgroundFileUpdaterController.shared
 
     
     let fm = FileManager.default
@@ -85,7 +58,7 @@ struct ContentView: View {
                                     _ = try fm.replaceItemAt(URL(fileURLWithPath: "/var/mobile/Library/SpringBoard/statusBarOverrides"), withItemAt: URL(fileURLWithPath: "/var/mobile/Library/SpringBoard/statusBarOverridesEditing"))
                                     respringFrontboard()
                                 } catch {
-                                    UIApplication.shared.alert(body: "\(error)")
+                                    UIApplication.shared.alert(body: "1: \(error)")
                                 }
                                 
                             }
@@ -96,6 +69,7 @@ struct ContentView: View {
                     Text(infoStr)
                 }
                 Section (footer: Text("When set to blank on notched devices, this will display the carrier name.")) {
+                    /*
                     Toggle("Change Carrier Text", isOn: $carrierTextEnabled).onChange(of: carrierTextEnabled, perform: { nv in
                         if nv {
                             StatusManager.sharedInstance().setCarrier(carrierText)
@@ -115,15 +89,36 @@ struct ContentView: View {
                         if carrierTextEnabled {
                             StatusManager.sharedInstance().setCarrier(safeNv)
                         }
-                    })
-                    Toggle("Date above clock", isOn: $crumbTextEnabled).onChange(of: crumbTextEnabled, perform: { nv in
+                    })*/
+                    Toggle("Date above clock", isOn: $crumbDateTextEnabled).onChange(of: crumbDateTextEnabled, perform: { nv in
                         if nv {
-                            //StatusManager.sharedInstance().setCrumb(crumbText)
+                            crumbDateTextEnabled = true
+                            crumbWeatherEnabled = false
+                            UserDefaults.standard.set(crumbDateTextEnabled, forKey: "DateIsEnabled")
+                            UserDefaults.standard.set(crumbWeatherEnabled, forKey: "WeatherIsEnabled")
+
                             setCrumbDate()
                         } else {
+                            crumbDateTextEnabled = false
+                            UserDefaults.standard.set(crumbDateTextEnabled, forKey: "DateIsEnabled")
                             StatusManager.sharedInstance().unsetCrumb()
                         }
                     })
+                    Toggle("Weather above clock", isOn: $crumbTextEnabled).onChange(of: crumbTextEnabled, perform: { nv in
+                        if nv {
+                            crumbDateTextEnabled = false
+                            crumbWeatherEnabled = true
+                            UserDefaults.standard.set(crumbWeatherEnabled, forKey: "WeatherIsEnabled")
+                            UserDefaults.standard.set(crumbDateTextEnabled, forKey: "DateIsEnabled")
+                            setCrumbWeather()
+                        } else {
+                            crumbWeatherEnabled = false
+                            UserDefaults.standard.set(crumbWeatherEnabled, forKey: "WeatherIsEnabled")
+                            StatusManager.sharedInstance().unsetCrumb()
+                        }
+                    })
+                    Text("Time: \(UIApplication.shared.backgroundTimeRemaining)")
+
                     /*
                     Toggle("Date above clock", isOn: &crumbDateTextEnabled).onChange(of: crumbDateTextEnabled, perform: { nv in
                         if nv {
@@ -166,13 +161,28 @@ struct ContentView: View {
                             StatusManager.sharedInstance().setCrumb(safeNv)
                         }
                     })*/
-                    Toggle("Change Status Bar Time Text", isOn: $timeTextEnabled).onChange(of: timeTextEnabled, perform: { nv in
+                    Toggle("Seconds test", isOn: $timeTextEnabled).onChange(of: timeTextEnabled, perform: { nv in
+                        /*
                         if nv {
                             StatusManager.sharedInstance().setTime(timeText)
                         } else {
                             StatusManager.sharedInstance().unsetTime()
+                        }*/
+                        if nv {
+                            UserDefaults.standard.set(true, forKey: "TimeIsEnabled")
+                            setTimeSeconds()
+                            backgroundController.time = 60.0
+                            backgroundController.restartTimer()
+                            timeTextEnabled = StatusManager.sharedInstance().isTimeOverridden()
+                        } else {
+                            UserDefaults.standard.set(false, forKey: "TimeIsEnabled")
+                            backgroundController.time = 3600.0
+                            backgroundController.restartTimer()
+                            StatusManager.sharedInstance().unsetTime()
+                            timeTextEnabled = StatusManager.sharedInstance().isTimeOverridden()
                         }
                     })
+                    /*
                     TextField("Status Bar Time Text", text: $timeText).onChange(of: timeText, perform: { nv in
                         // This is important.
                         // Make sure the UTF-8 representation of the string does not exceed 64
@@ -185,7 +195,7 @@ struct ContentView: View {
                         if timeTextEnabled {
                             StatusManager.sharedInstance().setTime(safeNv)
                         }
-                    })
+                    })*/
                 }
 
                 Section (footer: Text("*Will also hide carrier name\n^Will also hide cellular data indicator")) {
@@ -254,14 +264,15 @@ struct ContentView: View {
                                 try fm.removeItem(at: URL(fileURLWithPath: "/var/mobile/Library/SpringBoard/statusBarOverrides"))
                                 respringFrontboard()
                             } catch {
-                                UIApplication.shared.alert(body: "\(error)")
+                                UIApplication.shared.alert(body: "2: \(error)")
                             }
                             
                         }
                     }
                 }
             }
-            .navigationTitle("StatusMagic")
+            .navigationTitle("Magic")
+            /*
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -283,18 +294,16 @@ struct ContentView: View {
                             .frame(width: 20, height: 20)
                     }
                 }
-                /*
-                
-                if UserDefaults.standard.bool(forKey: "DateIsEnabled") == true && UserDefaults.standard.bool(forKey: "WeatherIsEnabled") == false{
-                    // check if it was disabled elsewhere
-                    UserDefaults.standard.set(crumbDateTextEnabled, forKey: "DateIsEnabled")
-                }
-                if UserDefaults.standard.bool(forKey: "WeatherIsEnabled") == true && UserDefaults.standard.bool(forKey: "DateIsEnabled") == false {
-                    // check if it was disabled elsewhere
-                    UserDefaults.standard.set(crumbWeatherTextEnabled, forKey: "WeatherIsEnabled")
-                }*/
-            }
+            }*/
             
+        }
+        .onAppear {
+            backgroundController.setup()
+            crumbDateTextEnabled = UserDefaults.standard.bool(forKey: "DateIsEnabled")
+            crumbWeatherEnabled = UserDefaults.standard.bool(forKey: "WeatherIsEnabled")
+            UIApplication.shared.setMinimumBackgroundFetchInterval(30)
+            UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+
         }
     }
 }

@@ -3,6 +3,7 @@ import Darwin
 
 @main
 struct StatusMagicApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     init() {
         registerDefaults()
     }
@@ -11,7 +12,7 @@ struct StatusMagicApp: App {
         WindowGroup {
             ContentView().onAppear {
                 checkAndEscape()
-                checkForUpdates()
+                //checkForUpdates()
             }
         }
     }
@@ -96,7 +97,7 @@ struct StatusMagicApp: App {
             do {
                 try fm.removeItem(at: URL(fileURLWithPath: "/var/mobile/Library/SpringBoard/statusBarOverridesEditing"))
             } catch {
-                UIApplication.shared.alert(body: "\(error)")
+                UIApplication.shared.alert(body: "5\(error)")
             }
         }
     }
