@@ -1,5 +1,44 @@
 import SwiftUI
 
+func modelIdentifier() -> String {
+    var sysinfo = utsname()
+    uname(&sysinfo)
+    return String(bytes: Data(bytes: &sysinfo.machine, count: Int(_SYS_NAMELEN)), encoding: .ascii)!.trimmingCharacters(in: .controlCharacters)
+}
+
+func setCrumbDate() {
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "dd/MM"
+    
+    let newStr: String = dateFormatter.string(from: Date())
+    
+    if (newStr + " ▶").utf8CString.count <= 256 {
+        StatusManager.sharedInstance().setCrumb(newStr)
+    } else {
+        StatusManager.sharedInstance().setCrumb("Length Error")
+    }
+}
+func setCrumbWeather() {
+    /*
+    var locationDataManager = LocationManager()
+    guard let lat = locationDataManager.locationManager.location?.coordinate.latitude else {
+        return
+    }
+    guard let long = locationDataManager.locationManager.location?.coordinate.longitude else {
+        return
+    }
+    fetchWeather(lat: lat, lon: long) { str in
+        if (str + " ▶").utf8CString.count <= 256 {
+            StatusManager.sharedInstance().setCrumb(str)
+        } else {
+            StatusManager.sharedInstance().setCrumb("Length Error")
+        }
+    } failure: { error in
+        StatusManager.sharedInstance().setCrumb("error")
+    }
+     */
+}
+
 struct ContentView: View {
     @Environment(\.openURL) var openURL
     
@@ -25,7 +64,15 @@ struct ContentView: View {
 //    @State private var microphoneUseHidden: Bool = StatusManager.sharedInstance().isMicrophoneUseHidden()
 //    @State private var cameraUseHidden: Bool = StatusManager.sharedInstance().isCameraUseHidden()
     
+    //@State private var crumbDateTextEnabled: Bool = false
+    //@State private var crumbWeatherTextEnabled: Bool = false
+
+    @State private var crumbDateTextEnabled: Bool = StatusManager.sharedInstance().isCrumbOverridden()
+
+    
     let fm = FileManager.default
+    
+    let infoStr = "Model: \(modelIdentifier()), iOS Version: \(UIDevice.current.systemVersion)"
     
     var body: some View {
         NavigationView {
@@ -45,7 +92,9 @@ struct ContentView: View {
                         }
                     }
                 }
-                
+                Section{
+                    Text(infoStr)
+                }
                 Section (footer: Text("When set to blank on notched devices, this will display the carrier name.")) {
                     Toggle("Change Carrier Text", isOn: $carrierTextEnabled).onChange(of: carrierTextEnabled, perform: { nv in
                         if nv {
@@ -67,6 +116,36 @@ struct ContentView: View {
                             StatusManager.sharedInstance().setCarrier(safeNv)
                         }
                     })
+                    Toggle("Date above clock", isOn: $crumbTextEnabled).onChange(of: crumbTextEnabled, perform: { nv in
+                        if nv {
+                            //StatusManager.sharedInstance().setCrumb(crumbText)
+                            setCrumbDate()
+                        } else {
+                            StatusManager.sharedInstance().unsetCrumb()
+                        }
+                    })
+                    /*
+                    Toggle("Date above clock", isOn: &crumbDateTextEnabled).onChange(of: crumbDateTextEnabled, perform: { nv in
+                        if nv {
+                            UserDefaults.standard.set(true, forKey: "DateIsEnabled")
+                            setCrumbDate()
+                        } else {
+                            UserDefaults.standard.set(false, forKey: "DateIsEnabled")
+                            StatusManager.sharedInstance().unsetCrumb()
+                        }
+                    })*/
+                    /*
+                    Toggle("Weather above clock", isOn: $crumbWeatherTextEnabled).onChange(of: $crumbWeatherTextEnabled, perform: { nv in
+                        if nv {
+                            UserDefaults.standard.set(true, forKey: "WeatherIsEnabled")
+                            
+                            setCrumbWeather()
+                        } else {
+                            UserDefaults.standard.set(false, forKey: "WeatherIsEnabled")
+                            StatusManager.sharedInstance().unsetCrumb()
+                        }
+                    })*/
+/*
                     Toggle("Change Breadcrumb Text", isOn: $crumbTextEnabled).onChange(of: crumbTextEnabled, perform: { nv in
                         if nv {
                             StatusManager.sharedInstance().setCrumb(crumbText)
@@ -86,7 +165,7 @@ struct ContentView: View {
                         if crumbTextEnabled {
                             StatusManager.sharedInstance().setCrumb(safeNv)
                         }
-                    })
+                    })*/
                     Toggle("Change Status Bar Time Text", isOn: $timeTextEnabled).onChange(of: timeTextEnabled, perform: { nv in
                         if nv {
                             StatusManager.sharedInstance().setTime(timeText)
@@ -204,6 +283,16 @@ struct ContentView: View {
                             .frame(width: 20, height: 20)
                     }
                 }
+                /*
+                
+                if UserDefaults.standard.bool(forKey: "DateIsEnabled") == true && UserDefaults.standard.bool(forKey: "WeatherIsEnabled") == false{
+                    // check if it was disabled elsewhere
+                    UserDefaults.standard.set(crumbDateTextEnabled, forKey: "DateIsEnabled")
+                }
+                if UserDefaults.standard.bool(forKey: "WeatherIsEnabled") == true && UserDefaults.standard.bool(forKey: "DateIsEnabled") == false {
+                    // check if it was disabled elsewhere
+                    UserDefaults.standard.set(crumbWeatherTextEnabled, forKey: "WeatherIsEnabled")
+                }*/
             }
             
         }
