@@ -6,7 +6,6 @@
 //
 
 import Foundation
-//import Alamofire
 
 
 private let apiKey = "a6b243f000737fa523434d1e8fc4d1a7"

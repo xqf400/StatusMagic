@@ -8,5 +8,10 @@
 		<string>location</string>
 		<string>processing</string>
 	</array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>YOUR_REFRESH_TASK_ID</string>
+        <string>YOUR_PROCESSING_TASK_ID</string>
+    </array>
 </dict>
 </plist>
